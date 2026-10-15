@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>四則計算タイムアタック</title>
+<style>
+body{font-family:system-ui,-apple-system,"Yu Gothic",sans-serif;max-width:920px;margin:0 auto;padding:18px;background:#f5f6f8;color:#20242a}
+h1{font-size:1.55rem} .panel{background:white;border:1px solid #d9dde3;border-radius:14px;padding:16px;margin:12px 0}
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}button,select{font:inherit;padding:10px 14px;border-radius:9px;border:1px solid #aeb6c2;background:white;cursor:pointer}
+button.primary{background:#20242a;color:white}button:disabled{opacity:.45;cursor:not-allowed}
+#clock{font-size:2.8rem;font-weight:750;font-variant-numeric:tabular-nums;text-align:center;margin:8px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.q{border:1px solid #e0e3e8;border-radius:10px;padding:10px;display:flex;align-items:center;gap:8px;background:#fff}
+.q b{min-width:28px;color:#606874}.q span{flex:1;font-size:1.05rem}.q input{width:95px;padding:8px;border:1px solid #aeb6c2;border-radius:7px;font-size:1rem}
+.meta{color:#5c6470;font-size:.92rem}.result{line-height:1.8}.good{font-weight:700}
+@media(max-width:560px){.grid{grid-template-columns:1fr}.q input{width:85px}}
+@media print{body{background:white;padding:0}.controls,.no-print{display:none!important}.panel{border:0} .grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style></head><body>
+<h1>四則計算タイムアタック</h1>
+<p class="meta">小学校算数から段階的に練習。タイマーを使い、解答を入力して採点できます。分数は答えの形が違う場合、先生が同値か確認してください。</p>
+<div class="panel">
+<div class="controls"><label>練習段階　<select id="stage"></select></label><button class="primary" id="start">スタート</button><button id="pause">一時停止</button><button id="reset">リセット</button><button id="check">採点する</button></div>
+<div id="clock">03:00</div><div class="meta" id="details"></div>
+</div>
+<div class="panel"><div class="grid" id="questions"></div></div>
+<div class="panel result" id="result" aria-live="polite">採点後、正答数と正解を表示します。</div>
+<div class="panel no-print"><b>授業での使い方</b><ol><li>段階を選び、スタートを押す。</li><li>解答欄に入力。時間切れになるとタイマーが止まります。</li><li>採点して正答数を記録表に書く。</li><li>間違えた問題は、正解を確認してから解き直す。</li></ol><button onclick="window.print()">この画面を印刷</button></div>
+<script>
+const rounds = [{"title": "STEP 1　たし算・ひき算", "time": 180, "note": "1桁・2桁の整数", "qs": [["7 + 8", 15], ["16 - 9", 7], ["24 + 13", 37], ["35 - 17", 18], ["9 + 6", 15], ["42 - 18", 24], ["28 + 17", 45], ["63 - 29", 34], ["56 + 27", 83], ["80 - 46", 34], ["19 + 25", 44], ["71 - 38", 33], ["34 + 48", 82], ["92 - 57", 35], ["46 + 36", 82], ["100 - 64", 36], ["58 + 29", 87], ["83 - 47", 36], ["67 + 18", 85], ["90 - 55", 35]]}, {"title": "STEP 2　かけ算・わり算", "time": 180, "note": "九九・あまりのないわり算", "qs": [["6 × 7", 42], ["8 × 4", 32], ["54 ÷ 6", 9], ["63 ÷ 9", 7], ["7 × 8", 56], ["36 ÷ 4", 9], ["9 × 6", 54], ["72 ÷ 8", 9], ["12 × 3", 36], ["84 ÷ 7", 12], ["14 × 4", 56], ["96 ÷ 8", 12], ["15 × 6", 90], ["144 ÷ 12", 12], ["23 × 3", 69], ["132 ÷ 11", 12], ["25 × 4", 100], ["160 ÷ 8", 20], ["32 × 3", 96], ["180 ÷ 9", 20]]}, {"title": "STEP 3　大きな数の計算", "time": 240, "note": "3桁の加減算・乗除", "qs": [["125 + 248", 373], ["503 - 176", 327], ["347 + 286", 633], ["700 - 358", 342], ["426 + 197", 623], ["812 - 467", 345], ["36 × 4", 144], ["48 × 5", 240], ["144 ÷ 6", 24], ["252 ÷ 7", 36], ["125 × 8", 1000], ["360 ÷ 12", 30], ["64 × 7", 448], ["432 ÷ 9", 48], ["208 + 395", 603], ["901 - 586", 315], ["75 × 6", 450], ["560 ÷ 14", 40], ["128 × 3", 384], ["625 ÷ 5", 125]]}, {"title": "STEP 4　小数の計算", "time": 240, "note": "小数点の位置に注意", "qs": [["1.2 + 0.5", 1.7], ["3.8 - 1.4", 2.4], ["0.6 × 4", 2.4], ["4.8 ÷ 6", 0.8], ["2.35 + 1.2", 3.55], ["5.7 - 2.85", 2.85], ["1.25 × 4", 5], ["3.6 ÷ 4", 0.9], ["0.75 + 0.8", 1.55], ["6.4 - 0.75", 5.65], ["2.4 × 3", 7.2], ["7.2 ÷ 8", 0.9], ["0.35 + 0.47", 0.82], ["9.1 - 3.65", 5.45], ["1.5 × 0.4", 0.6], ["4.2 ÷ 0.6", 7], ["2.5 × 1.2", 3], ["5.6 ÷ 0.7", 8], ["0.48 + 1.6", 2.08], ["10 - 3.75", 6.25]]}, {"title": "STEP 5　分数の計算", "time": 300, "note": "答えは約分して書く", "qs": [["1/2 + 1/2", "1"], ["1/4 + 2/4", "3/4"], ["3/5 - 1/5", "2/5"], ["2/3 + 1/3", "1"], ["5/8 - 2/8", "3/8"], ["1/2 + 1/4", "3/4"], ["3/4 - 1/2", "1/4"], ["1/3 + 1/6", "1/2"], ["5/6 - 1/3", "1/2"], ["2/5 + 1/10", "1/2"], ["3/4 × 2", "3/2"], ["2/3 × 3", "2"], ["1/2 × 1/4", "1/8"], ["3/5 × 10", "6"], ["1/2 ÷ 2", "1/4"], ["3/4 ÷ 3", "1/4"], ["2/3 ÷ 2", "1/3"], ["1/5 + 2/10", "2/5"], ["7/8 - 1/4", "5/8"], ["2/3 + 1/9", "7/9"]]}, {"title": "STEP 6　四則混合・計算順序", "time": 300, "note": "かっこ→かけ算・わり算→たし算・ひき算", "qs": [["3 + 4 × 2", 11], ["(3 + 4) × 2", 14], ["18 ÷ 3 + 5", 11], ["18 ÷ (3 + 3)", 3], ["20 - 3 × 4", 8], ["(20 - 3) × 2", 34], ["6 + 24 ÷ 4", 12], ["5 × 6 - 8", 22], ["36 ÷ 6 × 2", 12], ["7 + 3 × 5 - 4", 18], ["48 ÷ (4 × 3)", 4], ["2 × (9 - 4) + 3", 13], ["30 - 18 ÷ 3", 24], ["(12 + 8) ÷ 4", 5], ["4 × 5 + 6 ÷ 2", 23], ["50 - (6 + 4) × 3", 20], ["8 × 3 ÷ 4", 6], ["15 + 5 × (8 - 6)", 25], ["72 ÷ 8 + 3 × 2", 15], ["(16 - 4) ÷ 3 + 7", 11]]}];
+const $=id=>document.getElementById(id);
+let current=0, remaining=180, interval=null, running=false, started=false;
+rounds.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=r.title;$('stage').appendChild(o)});
+function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function showClock(){$('clock').textContent=fmt(remaining)}
+function render(){
+ clearInterval(interval);running=false;started=false;current=+$('stage').value;remaining=rounds[current].time;showClock();
+ $('details').textContent=`${rounds[current].note}　｜　制限時間 ${Math.floor(rounds[current].time/60)}分　｜　20問`;
+ $('questions').innerHTML='';rounds[current].qs.forEach((q,i)=>{const d=document.createElement('label');d.className='q';d.innerHTML=`<b>${i+1}.</b><span>${q[0]} =</span><input aria-label="問題${i+1}の答え" id="a${i}" autocomplete="off">`;$('questions').appendChild(d)});
+ $('result').textContent='採点後、正答数と正解を表示します。';$('start').disabled=false;$('pause').disabled=true;
+}
+function stop(){clearInterval(interval);interval=null;running=false;$('pause').textContent='再開';$('pause').disabled=!(started&&remaining>0)}
+function tick(){if(remaining>0){remaining--;showClock()}if(remaining<=0){stop();$('result').textContent='時間です。入力済みの答えを採点してください。';$('start').disabled=true}}
+$('start').onclick=()=>{if(running)return;if(remaining<=0)return;running=true;started=true;$('pause').disabled=false;$('pause').textContent='一時停止';interval=setInterval(tick,1000)};
+$('pause').onclick=()=>{if(running){stop()}else if(started&&remaining>0){running=true;$('pause').textContent='一時停止';$('pause').disabled=false;interval=setInterval(tick,1000)}};
+$('reset').onclick=render;$('stage').onchange=render;
+$('check').onclick=()=>{stop();let correct=0;const r=rounds[current];let lines=[];r.qs.forEach((q,i)=>{const inp=$('a'+i);const raw=inp.value.trim().replace(/／/g,'/').replace(/，/g,'.');const expected=String(q[1]);let ok=raw===expected;
+ if(typeof q[1]==='number'&&raw!==''&&!ok){const v=Number(raw);ok=Number.isFinite(v)&&Math.abs(v-q[1])<1e-8}
+ if(ok){correct++;inp.style.borderColor='#2c8a55'}else{inp.style.borderColor='#bd4b4b';lines.push(`${i+1}. ${q[0]} = ${q[1]}（入力：${raw||'未回答'}）`)}
+ });const pct=Math.round(correct/20*100);$('result').innerHTML=`<div class="good">結果：${correct} / 20問（正答率 ${pct}%）</div><div>経過時間：${fmt(r.time-remaining)} / 制限 ${fmt(r.time)}</div><div>${correct>=18?'目標達成！記録表に記入しましょう。':'間違えた問題を解き直して、次回もう一度挑戦しましょう。'}</div><hr><b>確認する問題</b><br>${lines.length?lines.map(x=>escapeHtml(x)).join('<br>'):'全問正解です！'}`;
+};
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+render();
+</script></body></html>
